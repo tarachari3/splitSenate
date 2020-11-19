@@ -3,84 +3,97 @@ library(phangorn)
 library(readr)
 library(tidyverse)
 library(hash)
-
+#install.packages("STAT")
+library("STAT")
+library(graphics) 
+library(grDevices)
+#install.packages("ggpubr")
+library(ggpubr)
+#install.packages("viridis")  # Install
+library("viridis") 
+library(stringi)
+source('distFuncs.R')
 #https://voteview.com/data for all data
 
-cong = 114
-#Read in matrix (csv) of samples by features
-Sall_members <- as.tibble(read_csv("~/Downloads/Sall_members.csv") )
-Sall_members <- Sall_members %>% filter(congress == cong ) 
+setwd("~/Desktop/senateSplitsTree")
+Sall_votes = as_tibble(read_csv("./Sall_votes_names_parties.csv") )
 
-Sall_votes <- as.tibble(read_csv("~/Downloads/Sall_votes.csv"))  
-Sall_votes  <- Sall_votes %>% filter(congress == cong)
 
-#Get real names
-Sall_votes[c("name")] <- 
-  lapply(Sall_votes[c("icpsr")], function(col) Sall_members$bioname[match(col, Sall_members$icpsr)])
-
-#Get party affiliation
-Sall_votes[c("party_code")] <- 
-  lapply(Sall_votes[c("icpsr")], function(col) Sall_members$party_code[match(col, Sall_members$icpsr)])
-
-retParty <- function(code) {
-  if (code == 100) {
-    return("Dem")
-  }
-  else if (code == 200){
-    return("Rep")
-  }
-  else{
-    return("Ind")
-  }
-
+# Make distance matrix and nexus output for 114-116th congresses
+for (i in c(114,115,116)){
+  cong = i
+  Sall_votes_sub  <- Sall_votes %>% filter(congress == cong)
+  
+  fname <- paste("./dist_",as.character(cong),"th.nex",sep="")
+  
+  l1DistsAll <- makeDistMat(Sall_votes_sub,fname)
 }
 
-Sall_votes[c("party")] <- 
-  lapply(Sall_votes[c("party_code")], function(col) map(col,retParty))
 
 
-# yes-->1, no --> 0, abstain --> 0.5
-map_vote <- c(1.0,1.0,1.0, 0.0,0.0,0.0, 0.5,0.5,0.5)
+# Get split distances for 116th congress
 
-#Get names in Nexus-legal format
-Sall_votes <- Sall_votes %>% mutate(cast_code = map_vote[as.integer(cast_code)])
+splitMat_116 <- read_delim("./splitWeights_tab_116th.txt", "\t", escape_double = FALSE, trim_ws = TRUE)
 
-#Change names --> LASTNAME_FirstInitial_Party
-newName <- function(name){
-  new = substr(name, start=1, stop=str_locate(name, ",")[1]+2)
-  new = gsub(", ", "_",new)
-  new = gsub(" ", "_",new)
-  
-}
+splitDists_116 <- pairSplitDists(splitMat_116)
 
-Sall_votes[c("name")] <- 
-  lapply(Sall_votes[c("name")], function(col) map(col,newName))
-
-Sall_votes[c("plotID")] = paste(Sall_votes$name, Sall_votes$party, sep="_")
-
-sub_votes <-  Sall_votes[c('plotID','cast_code','rollnumber')]
-
-votes_df <- pivot_wider(sub_votes, names_from = rollnumber, values_from = cast_code)
-
-votes_df <- na.omit(votes_df) #Remove members who were not present for full term
-
-#Isakson replaced by Loeffler around roll call 400
-# votes_df <- votes_df %>% filter(plotID != 'ISAKSON_J_Rep')
-# votes_df <- votes_df %>% filter(plotID != 'LOEFFLER_K_Rep')
-      
-
-#Make numeric df, without names column
-votes_df <- as.data.frame(votes_df)
-rownames(votes_df) <- votes_df$plotID
-votes_df <- subset(votes_df,select=-c(plotID))
+# Plot Split distances
+par(cex.main=0.7)
+hv <- heatmap(as.matrix(splitDists_116),scale="none",
+              col=viridis(max(splitDists_116),direction = -1),
+              main = "Senator Pairwise Split Distances")
 
 
-#Get pairwise (Euclidean) distances
-d <- dist(votes_df,method="manhattan",upper = FALSE,diag = TRUE)
-  
-#Write distance matrix as nexus file
-fname <- paste("/Users/tarachari/Desktop/dist_",as.character(cong),"th.nex",sep="")
-write.nexus.dist(d,file=fname, append = FALSE, upper = FALSE,
-                 diag = TRUE, digits = getOption("digits"))
+# Compare dist changes from input to split-distance output --> Very small changes
+
+percDiff <- distDiff(l1DistsAll, splitDists_116 )
+
+
+# Get distances of all Senators from 'center'
+centerDists <- centerDist(splitMat_116) 
+
+plotCenterDist(centerDists)
+
+
+
+# Plot percent diffs between L1 and NNet LS distances (Split distances)
+par(mar=c(7,6,4,1)+.1)
+boxplot(percDiff,labels = rownames(percDiff),
+        main="Percent Difference in Pairwise L1 Dist vs Split Distances",
+        xaxt="none",
+        ylab = 'Percent Change (from L1 to Split)',
+        cex.lab = 0.8, cex.main = 0.8,cex.axis=0.8)
+axis(1, at=c(1:length(rownames(percDiff))),labels=rownames(percDiff), las=3,cex.axis=0.5)
+
+hv <- heatmap(percDiff,scale="none",
+              col=viridis(max(percDiff)),
+              main = "Perc Changes in L1 Distances")
+
+plot(as.matrix(splitDists_116 ),as.matrix(l1DistsAll ))
+
+
+
+# Distance between non-Republican members only --> Check if Dem Primary Group still exists
+cong = 116
+Sall_votes_dem <- Sall_votes %>% filter(congress == cong)
+Sall_votes_dem  <- Sall_votes_dem %>% filter(party_code != 200)
+
+fname <- paste("./dist_dem_",as.character(cong),"th.nex",sep="")
+
+l1DistsDem <- makeDistMat(Sall_votes_dem,fname)
+
+
+# Runs Test for Dem Primary Candidates grouping
+numCands = 5
+numRestAllParties = dim(as.matrix(l1DistsAll))[1] - numCands
+numRestDem = dim(as.matrix(l1DistsDem))[1] - numCands
+
+pvalAll = calcRunsTest(numCands,numRestAllParties,3)
+print(pvalAll)
+pvalDem = calcRunsTest(numCands,numRestDem,3)
+print(pvalDem)
+
+
+
 
 

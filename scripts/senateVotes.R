@@ -94,6 +94,13 @@ pvalDem = calcRunsTest(numCands,numRestDem,3)
 print(pvalDem)
 
 
+# Distance between Republican members only 
+cong = 116
+Sall_votes_rep <- Sall_votes %>% filter(congress == cong)
+Sall_votes_rep  <- Sall_votes_rep %>% filter(party_code == 200)
 
+fname <- paste("./dist_rep_",as.character(cong),"th.nex",sep="")
+
+l1DistsRep <- makeDistMat(Sall_votes_rep,fname)
 
 

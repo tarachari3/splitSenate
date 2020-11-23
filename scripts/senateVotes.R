@@ -12,10 +12,15 @@ library(ggpubr)
 #install.packages("viridis")  # Install
 library("viridis") 
 library(stringi)
+library(pheatmap)   
+library(gplots)
+
+
+setwd("~/Desktop/senateSplitsTree")
 source('distFuncs.R')
 #https://voteview.com/data for all data
 
-setwd("~/Desktop/senateSplitsTree")
+
 Sall_votes = as_tibble(read_csv("./Sall_votes_names_parties.csv") )
 
 
@@ -38,10 +43,14 @@ splitMat_116 <- read_delim("./splitWeights_tab_116th.txt", "\t", escape_double =
 splitDists_116 <- pairSplitDists(splitMat_116)
 
 # Plot Split distances
-par(cex.main=0.7)
-hv <- heatmap(as.matrix(splitDists_116),scale="none",
+par(mar=c(8,4,4,1)+.1,cex.main=0.5,cex.axis=0.1)
+pdf(file = "./splitDists_116.pdf",width=10,height=10)
+hv <- pheatmap(as.matrix(splitDists_116),scale="none",
               col=viridis(max(splitDists_116),direction = -1),
-              main = "Senator Pairwise Split Distances")
+              main = "Senator Pairwise Split Distances",
+              fontsize_row = 4,fontsize_col = 5)
+
+dev.off()
 
 
 # Compare dist changes from input to split-distance output --> Very small changes
@@ -58,19 +67,24 @@ plotCenterDist(centerDists)
 
 # Plot percent diffs between L1 and NNet LS distances (Split distances)
 par(mar=c(7,6,4,1)+.1)
+pdf(file = "./percDiff_l1_fromNNet.pdf",width=10,height=10)
 boxplot(percDiff,labels = rownames(percDiff),
         main="Percent Difference in Pairwise L1 Dist vs Split Distances",
         xaxt="none",
         ylab = 'Percent Change (from L1 to Split)',
         cex.lab = 0.8, cex.main = 0.8,cex.axis=0.8)
-axis(1, at=c(1:length(rownames(percDiff))),labels=rownames(percDiff), las=3,cex.axis=0.5)
+axis(1, at=c(1:length(rownames(percDiff))),labels=rownames(percDiff), las=3,cex.axis=0.35)
+dev.off()
 
-hv <- heatmap(percDiff,scale="none",
-              col=viridis(max(percDiff)),
-              main = "Perc Changes in L1 Distances")
 
-plot(as.matrix(splitDists_116 ),as.matrix(l1DistsAll ))
+corr <- cor(as.vector(splitDists_116),as.vector(l1DistsAll))
+mylabel = bquote(italic(corr) == .(format(corr, digits = 3)))
 
+pdf(file = "./l1vsplit_dists_corr.pdf",width=10,height=10)
+plot(as.matrix(splitDists_116 ),as.matrix(l1DistsAll ),
+     xlab='NeighborNet Distances',ylab='L1 Distances')
+text(x = 500, y = 300, labels = mylabel)
+dev.off()
 
 
 # Distance between non-Republican members only --> Check if Dem Primary Group still exists

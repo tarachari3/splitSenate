@@ -177,14 +177,15 @@ plotCenterDist <- function(centerDists) {
   red <- rep("#ee4035",length(repValues))
   colors <- c(blue,red)
   
-  
+  pdf(file = "./center_dists.pdf",width=7,height=5)
   x<- barplot(forPlot$dists,names=rownames(forPlot),col = colors,
-              space = 0.3, width = .01, border=NA,xaxt="none")
+              space = 0.3, width = .01, border=NA,xaxt="none",cex.axis=0.5)
   axis(1, at=x,labels=rownames(forPlot),
-       las=3,cex.axis=0.5)
+       las=3,cex.axis=0.3)
   lines(x=rep((x[length(demValues)]+x[length(demValues)+1])/2,2),
         y=c(0,max(forPlot$dists)),
         lty = 2)
+  dev.off()
   
 }
 

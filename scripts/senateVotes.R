@@ -2,6 +2,7 @@ library(usedist)
 library(phangorn)
 library(readr)
 library(tidyverse)
+library(tidyr)
 library(hash)
 #install.packages("STAT")
 library("STAT")
@@ -117,4 +118,50 @@ fname <- paste("./dist_rep_",as.character(cong),"th.nex",sep="")
 
 l1DistsRep <- makeDistMat(Sall_votes_rep,fname)
 
+# Ranking votes of Dem primary candidates by agreement with rest of party
 
+cong = 116
+Sall_votes_dem <- Sall_votes %>% filter(congress == cong)
+Sall_votes_dem  <- Sall_votes_dem %>% filter(party_code != 200)
+
+
+votesDem <- makeVoteMat(Sall_votes_dem)
+rows <- rownames(votesDem)
+
+
+votesDem_sub <- votesDem[c("SANDERS_B_Ind","WARREN_E_Dem",
+                           "KLOBUCHAR_A_Dem","BOOKER_C_Dem","HARRIS_K_Dem"),]
+
+sameInds <- sapply(votesDem_sub, function(x) length(unique(x)) == 1 ) 
+# Keep rollcall numbers associated with votes
+rollcalls <- 1:length(sameInds)
+rollcalls <- rollcalls[sameInds]
+
+sameVotes <- votesDem[,sameInds]
+scores <- rep(0,length(sameVotes))
+for (i in 1:length(sameVotes)){
+  
+  comp <- sameVotes["SANDERS_B_Ind",i]
+  v <- sameVotes[,i]
+  same <- v == comp
+  scores[i] <- sum(same)/length(v)
+
+}
+
+sortedScores <- sort(scores, index.return=TRUE)
+justScores <- sortedScores$x
+newRoll <- rollcalls[sortedScores$ix]
+
+toPlot <- data.frame(justScores, newRoll)
+colnames(toPlot) <- c('Percent','Rollcall')
+toPlot$color <- ifelse(toPlot$Percent <= 0.25, 'steelblue', 'grey')
+
+ggplot(toPlot, aes(x=Rollcall, y=Percent,color=color)) + 
+  geom_point(alpha = 0.6,color=toPlot$color) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"),
+        axis.title=element_text(size=10)) +
+  xlab('Vote Rollcall Number') + 
+  ylab('Percent Agreement (Within Party Votes)')
+
+ggsave("demVoteAgreementCandidates.pdf")

@@ -1,4 +1,56 @@
 # ---------- Make L1 distance matrix and nexus file for SplitsTree ----------
+makeVoteMat <- function(Sall_votes) {
+  
+  retParty <- function(code) {
+    if (code == 100) {
+      return("Dem")
+    }
+    else if (code == 200){
+      return("Rep")
+    }
+    else{
+      return("Ind")
+    }
+    
+  }
+  
+  Sall_votes[c("party")] <- 
+    lapply(Sall_votes[c("party_code")], function(col) map(col,retParty))
+  
+  
+  # yes-->1, no --> 0, abstain --> 0.5
+  map_vote <- c(1.0,1.0,1.0, 0.0,0.0,0.0, 0.5,0.5,0.5)
+  
+  #Get names in Nexus-legal format
+  Sall_votes <- Sall_votes %>% mutate(cast_code = map_vote[as.integer(cast_code)])
+  
+  #Change names --> LASTNAME_FirstInitial_Party
+  newName <- function(name){
+    new = substr(name, start=1, stop=str_locate(name, ",")[1]+2)
+    new = gsub(", ", "_",new)
+    new = gsub(" ", "_",new)
+    
+  }
+  
+  Sall_votes[c("name")] <- 
+    lapply(Sall_votes[c("name")], function(col) map(col,newName))
+  
+  Sall_votes[c("plotID")] = paste(Sall_votes$name, Sall_votes$party, sep="_")
+  
+  sub_votes <-  Sall_votes[c('plotID','cast_code','rollnumber')]
+  
+  votes_df <- pivot_wider(sub_votes, names_from = rollnumber, values_from = cast_code)
+  
+  votes_df <- na.omit(votes_df) #Remove members who were not present for full term
+  
+  
+  #Make numeric df, without names column
+  votes_df <- as.data.frame(votes_df)
+  rownames(votes_df) <- votes_df$plotID
+  votes_df <- subset(votes_df,select=-c(plotID))
+  
+  return(votes_df)
+}
 makeDistMat <- function(Sall_votes,outfile='dist.nex') {
   
   retParty <- function(code) {
@@ -216,3 +268,5 @@ calcRunsTest <- function(numInGrp,numOutGrp,numRuns,exactTest=TRUE) {
   }
 
 }
+
+

@@ -1,6 +1,6 @@
 # splitSenate
 
-Use SplitsTree to create circular splits-system representing the relationships between House member's voting records
+Use SplitsTree to create circular splits-system representing the relationships between Senate member's voting records
 
 Contains 
 (1) Script to convert data from: Lewis, Jeffrey B., Keith Poole, Howard Rosenthal, Adam Boche, Aaron Rudkin, and Luke Sonnet (2020). Voteview: Congressional Roll-Call Votes Database. https://voteview.com/

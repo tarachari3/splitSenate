@@ -79,6 +79,8 @@ makeDistMat <- function(Sall_votes,outfile='dist.nex') {
   #Change names --> LASTNAME_FirstInitial_Party
   newName <- function(name){
     new = substr(name, start=1, stop=str_locate(name, ",")[1]+2)
+    new = gsub("'", "",new)
+    new = gsub("\\(", "",new)
     new = gsub(", ", "_",new)
     new = gsub(" ", "_",new)
     

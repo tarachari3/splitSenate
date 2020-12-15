@@ -1,28 +1,5 @@
-library(usedist)
-library(phangorn)
-library(readr)
-library(tidyverse)
-library(tidyr)
-library(hash)
-#install.packages("STAT")
-library("STAT")
-library(graphics) 
-library(grDevices)
-#install.packages("ggpubr")
-library(ggpubr)
-#install.packages("viridis")  # Install
-library("viridis") 
-library(stringi)
-library(pheatmap)   
-library(gplots)
-
-
-setwd("~/Desktop/senateSplitsTree")
 source('distFuncs.R')
-#https://voteview.com/data for all data
-
-
-Sall_votes = as_tibble(read_csv("./Sall_votes_names_parties.csv") )
+Sall_votes = as_tibble(read_csv("./data/Sall_votes_withPartyAndNames.csv") )
 
 
 # Make distance matrix and nexus output for 114-116th congresses
@@ -30,7 +7,7 @@ for (i in c(114,115,116)){
   cong = i
   Sall_votes_sub  <- Sall_votes %>% filter(congress == cong)
   
-  fname <- paste("./dist_",as.character(cong),"th.nex",sep="")
+  fname <- paste("./data/dist_",as.character(cong),"th.nex",sep="")
   
   l1DistsAll <- makeDistMat(Sall_votes_sub,fname)
 }
@@ -39,14 +16,14 @@ for (i in c(114,115,116)){
 
 # Get split distances for 116th congress
 
-splitMat_116 <- read_delim("./splitWeights_tab_116th.txt", "\t", escape_double = FALSE, trim_ws = TRUE)
+splitMat_116 <- read_delim("./data/splitWeights_tab_116th.txt", "\t", escape_double = FALSE, trim_ws = TRUE)
 
 splitDists_116 <- pairSplitDists(splitMat_116)
 
 # Plot Split distances
 par(mar=c(8,4,4,1)+.1,cex.main=0.5,cex.axis=0.1)
 pdf(file = "./splitDists_116.pdf",width=10,height=10)
-hv <- pheatmap(as.matrix(splitDists_116),scale="none",
+pheatmap(as.matrix(splitDists_116),scale="none",
               col=viridis(max(splitDists_116),direction = -1),
               main = "Senator Pairwise Split Distances",
               fontsize_row = 4,fontsize_col = 5)
@@ -93,19 +70,19 @@ cong = 116
 Sall_votes_dem <- Sall_votes %>% filter(congress == cong)
 Sall_votes_dem  <- Sall_votes_dem %>% filter(party_code != 200)
 
-fname <- paste("./dist_dem_",as.character(cong),"th.nex",sep="")
+fname <- paste("./data/dist_dem_",as.character(cong),"th.nex",sep="")
 
 l1DistsDem <- makeDistMat(Sall_votes_dem,fname)
 
 
 # Runs Test for Dem Primary Candidates grouping
-numCands = 5
+numCands = 7 #Including Gillibrand and Bennet
 numRestAllParties = dim(as.matrix(l1DistsAll))[1] - numCands
 numRestDem = dim(as.matrix(l1DistsDem))[1] - numCands
 
-pvalAll = calcRunsTest(numCands,numRestAllParties,3)
+pvalAll = calcRunsTest(numCands,numRestAllParties,5) #Gillibrand not ordered sequentially with others
 print(pvalAll)
-pvalDem = calcRunsTest(numCands,numRestDem,3)
+pvalDem = calcRunsTest(numCands,numRestDem,5) #Bennet not ordered sequentially with others
 print(pvalDem)
 
 
@@ -114,7 +91,7 @@ cong = 116
 Sall_votes_rep <- Sall_votes %>% filter(congress == cong)
 Sall_votes_rep  <- Sall_votes_rep %>% filter(party_code == 200)
 
-fname <- paste("./dist_rep_",as.character(cong),"th.nex",sep="")
+fname <- paste("./data/dist_rep_",as.character(cong),"th.nex",sep="")
 
 l1DistsRep <- makeDistMat(Sall_votes_rep,fname)
 
@@ -128,20 +105,21 @@ Sall_votes_dem  <- Sall_votes_dem %>% filter(party_code != 200)
 votesDem <- makeVoteMat(Sall_votes_dem)
 rows <- rownames(votesDem)
 
-
+# Dem Primary Candidates who consistently cluster together
 votesDem_sub <- votesDem[c("SANDERS_B_Ind","WARREN_E_Dem",
-                           "KLOBUCHAR_A_Dem","BOOKER_C_Dem","HARRIS_K_Dem"),]
+                           "KLOBUCHAR_A_Dem","BOOKER_C_Dem","HARRIS_K_Dem"),] 
 
 sameInds <- sapply(votesDem_sub, function(x) length(unique(x)) == 1 ) 
 # Keep rollcall numbers associated with votes
 rollcalls <- 1:length(sameInds)
 rollcalls <- rollcalls[sameInds]
 
+#Find votes where all 5 candidates vote the same
 sameVotes <- votesDem[,sameInds]
 scores <- rep(0,length(sameVotes))
 for (i in 1:length(sameVotes)){
-  
-  comp <- sameVotes["SANDERS_B_Ind",i]
+  # Just need to check if other member matches with 1 candidate's vote
+  comp <- sameVotes["SANDERS_B_Ind",i] 
   v <- sameVotes[,i]
   same <- v == comp
   scores[i] <- sum(same)/length(v)
@@ -160,8 +138,8 @@ ggplot(toPlot, aes(x=Rollcall, y=Percent,color=color)) +
   geom_point(alpha = 0.6,color=toPlot$color) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black"),
-        axis.title=element_text(size=10)) +
+        axis.title=element_text(size=8)) +
   xlab('Vote Rollcall Number') + 
   ylab('Percent Agreement (Within Party Votes)')
 
-ggsave("demVoteAgreementCandidates.pdf")
+ggsave("demVoteAgreementCandidates.pdf",width=5, height=3)
